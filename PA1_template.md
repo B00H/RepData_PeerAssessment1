@@ -5,6 +5,8 @@
 Note: It is assumed that the repository with all files needed was cloned. However, just to be sure, run a file check. If the files needed are not in the current working directory, the script stops and displays an error message. The script also unzips the raw data file if needed.
 
 ```r
+## Check if files exist in the format needed. If file is missing, throw error.
+## If file zipped, unzip. 
 if (!file.exists("./activity.zip")) {
 	stop("Files not found. Please set working directory to folder with necessary data files.")
 }
@@ -23,8 +25,11 @@ repdata <- read.csv("./activity.csv", header = TRUE, colClasses = c("numeric", "
 Task: Calculate total steps per day, while ignoring missing values. Plot histogram of total steps taken.
 
 ```r
+## Calculate total steps takes per day. Omit missing values. 
 repdata.sum <- with(repdata, na.omit(aggregate(steps, by = list(date), FUN = sum)))
+## Assign variable names. 
 names(repdata.sum) <- c("datecollected", "totalsteps")
+## Plot histogram. 
 hist(repdata.sum$totalsteps, breaks = 53, col = "red", xlab = "Total Steps Taken", ylab = "Frequency", main = "Histogram of Total Steps Taken \n(missing values omitted)", xlim = c(0, 25000))
 ```
 
@@ -35,9 +40,13 @@ Task: Calculate mean and median total steps taken per day. Ignore missing values
 [Note: Code also sets R options to not using scientific notion.]  
 
 ```r
+## Set R to not using scientific notion. 
 options("scipen" = 100, "digits" = 4)
+## Calculate mean total steps. 
 repdata.mean <- with(repdata.sum, mean(repdata.sum$totalsteps))
+## Calculate median total steps. 
 repdata.median <- with(repdata.sum, median(repdata.sum$totalsteps))
+## Print mean and median. 
 repdata.mean
 ```
 
@@ -60,9 +69,13 @@ The median total steps taken per day is 10765.
 Task: Calculate mean steps per 5-min time intervall across all days. Make time series plot. 
 
 ```r
+## Create new dataset without missing values.
 repdata.clean <- na.omit(repdata)
+## Calculate mean by interval. 
 repdata.ts <- with(repdata.clean, aggregate(steps, by = list(interval), FUN = mean))
+## Assign variable names. 
 names(repdata.ts) <- c("interval", "meansteps")
+## Make time series plot. 
 with(repdata.ts, plot(meansteps ~ interval, type = "l", col = "red", main = "Average Daily Activity Pattern", xlab = "time interval", ylab = "mean steps per interval", xlim = c(0,2500), ylim = c(0, 250)), echo = TRUE)
 ```
 
@@ -71,12 +84,16 @@ with(repdata.ts, plot(meansteps ~ interval, type = "l", col = "red", main = "Ave
 Question: Which 5-minute interval, on average across all the days in the dataset, contains the maximum number of steps? 
 
 ```r
+## Calculate maximum of mean steps.
 repdata.timeseriesmax <- with(repdata.ts, max(meansteps))
+## Create new variable to which interval with maximum steps will be saved. 
 repdata.interval <- c()
+## Get interval with maximum mean steps. 
 for (i in 1:nrow(repdata.ts)){
         if (identical(repdata.ts$meansteps[i], repdata.timeseriesmax))
                 repdata.interval <- repdata.ts[i,1]
 }
+## Print maximum mean steps and associated interval. 
 repdata.timeseriesmax
 ```
 
@@ -98,6 +115,7 @@ Answer: Interval 835 contains the maximum average number of steps (i.e., 206.169
 Task: Calculate and report the total number of missing values in the dataset (i.e. the total number of rows with NAs). 
 
 ```r
+## Calculate number of missing values. Print. 
 repdata.missing <- sum(is.na(repdata$steps))
 repdata.missing
 ```
@@ -113,6 +131,7 @@ Task: Devise a strategy for filling in all of the missing values in the dataset.
 First, let's explore the pattern of missing values suing the VIM package. The first plot shows that only the steps variable is missing values. The second plot shows how the missing values are distributed in relation to the date and interval variables. The third plot shows that mean steps taken per interval do not differ between those with and without missing values. The forth plot suggests an association between date and missing values. Even though a more sophisticated missing value management approach is preferable (e.g., using the mice package), for simplicity, missing values with be imputed with the mean steps of that interval across all days (probably a valid approach considering plot 3) and saved as a new dataframe called impute.  
 
 ```r
+## Load VIM package. 
 library(VIM)
 ```
 
@@ -133,13 +152,16 @@ library(VIM)
 ```
 
 ```r
+## Plot all variables to check which ones have missing values. 
 aggr(repdata, prop = FALSE, numbers = TRUE)
 ```
 
 ![plot of chunk imputemissing](figure/imputemissing1.png) 
 
 ```r
-matrixplot(repdata)                             ## Note: There will be 3 warnings. 
+## Make another plot of all variables and check distribution of missing values.
+## Note: There will be 3 warnings.
+matrixplot(repdata)   
 ```
 
 ```
@@ -151,6 +173,8 @@ matrixplot(repdata)                             ## Note: There will be 3 warning
 ![plot of chunk imputemissing](figure/imputemissing2.png) 
 
 ```r
+## Make 2 plots steps against interval and steps against date to check for possible
+## associations between missing values and variables of interest. 
 marginplot(repdata[c("steps", "interval")])
 ```
 
@@ -163,10 +187,17 @@ marginplot(repdata[c("steps", "date")])
 ![plot of chunk imputemissing](figure/imputemissing4.png) 
 
 ```r
-impute <- repdata                               ## Copy original data set for imputation. 
-repdata.impute <- with(repdata.clean, aggregate(steps, by = list(interval), FUN = mean))                                          ## Calculate mean per interval across dates. 
+## Copy original data set for imputation. 
+impute <- repdata  
+## Calculate mean per interval across dates. These will replace the missing values.
+repdata.impute <- with(repdata.clean, aggregate(steps, by = list(interval), FUN = mean))     
+## Assign variable names.
 names(repdata.impute) <- c("interval", "meansteps")
+## Create temporary vector. 
 toimpute <- c()
+## Get value to be imputed (depends on the interval) from repdata.impute.
+## Temporarily store in toimpute.
+## Replace missing value with value from rep.data impute. 
 for (i in 1:nrow(impute)){
         for (j in 1:nrow(repdata.impute)){
                 if (identical(impute$interval[i], repdata.impute$interval[j])) {
@@ -182,8 +213,12 @@ for (i in 1:nrow(impute)){
 Task: Make a histogram of the total number of steps taken each day.
 
 ```r
+## Calculate total steps of new data set with the missing values replaced by mean
+## steps per interval. 
 impute.sum <- with(impute, aggregate(steps, by = list(date), FUN = sum))
+## Assign variable names. 
 names(impute.sum) <- c("datecollected", "totalsteps")
+## Plot histogram of imputed data set. 
 hist(impute.sum$totalsteps, breaks = 61, col = "red", xlab = "Total Steps Taken", ylab = "Frequency", main = "Histogram of Total Steps Taken \n(missing values imputed)", xlim = c(0, 25000), ylim = c(0,12))
 ```
 
@@ -192,6 +227,7 @@ hist(impute.sum$totalsteps, breaks = 61, col = "red", xlab = "Total Steps Taken"
 Task: Calculate and report the mean and median total number of steps taken per day.
 
 ```r
+## Calculate mean and median of imputed data set. Print. 
 impute.mean <- with(impute.sum, mean(impute.sum$totalsteps))
 impute.median <- with(impute.sum, median(impute.sum$totalsteps))
 impute.mean
@@ -214,6 +250,8 @@ Answer: Using the mean imputed data, the mean total steps taken is 10766.1887, a
 Task: Do these values differ from the estimates from the first part of the assignment? 
 
 ```r
+## Check whether means and mediansdiffer between data sets with omitted missing 
+## values and imputed missing values respectively. Print. 
 mean.diff <- identical(repdata.mean, impute.mean)
 median.diff <- identical(repdata.median, impute.median)
 mean.diff
@@ -238,9 +276,9 @@ Task: What is the impact of imputing missing data on the estimates of the total 
 Plot total steps with missing values omitted and imputed respectively in an overlapping histogram. Compare count parameters of histogram. 
 
 ```r
-## Histogram of total steps, missing values omitted.
-hist.omit <- hist(impute.sum$totalsteps, breaks = 61, col = rgb(0.8,0.8,0.8,0.0), xlab = "Total Steps Taken", ylab = "Frequency", xlim = c(0, 25000), ylim = c(0,12), border = "black", main = "Overlapping histogram \n(red = NAs omitted; black = NAs imputed)")
 ## Histogram of total steps, missing values imputed.
+hist.omit <- hist(impute.sum$totalsteps, breaks = 61, col = rgb(0.8,0.8,0.8,0.0), xlab = "Total Steps Taken", ylab = "Frequency", xlim = c(0, 25000), ylim = c(0,12), border = "black", main = "Overlapping histogram \n(red = NAs omitted; black = NAs imputed)")
+## Overlay histogram of total steps, missing values omitted.
 hist.impute <- hist(repdata.sum$totalsteps, breaks = 53, col = rgb(0.8,0.8,0.8,0.0), xlim = c(0, 25000), ylim = c(0,12), border = "red", add = TRUE)
 ```
 
@@ -256,7 +294,7 @@ identical(hist.omit$count, hist.impute$count)
 ```
 
 ```r
-## Combine counts of the two data sets, print for comparison. 
+## Combine counts of the two data sets. Assign variable names. Print for comparison. 
 histcompare <- as.data.frame(cbind(hist.omit$count, hist.impute$count))
 names(histcompare) <- c("omit.count", "impute.count")
 histcompare
@@ -315,7 +353,10 @@ Answer: As seen in the Overlaying Histogram and the histcompare dataframe respec
 Task: Create a new factor variable in the dataset with two levels – “weekday” and “weekend” indicating whether a given date is a weekday or weekend day.
 
 ```r
+## Make new variable that shows day of the week. 
 impute$weekday <- weekdays(impute$date)
+## Make new variable that is weekend of day of the week is Sat or Sun, weekday 
+## otherwise. Factorize. 
 for (i in 1:nrow(impute)){
         ifelse(impute$weekday[i] == "Saturday" | impute$weekday[i] == "Sunday", impute$weekend[i] <- "weekend", impute$weekend[i] <- "weekday")
         }
@@ -325,9 +366,13 @@ impute$weekend <- factor(impute$weekend, levels = c("weekend", "weekday"))
 Task: Make a panel plot containing a time series plot (i.e. type = "l") of the 5-minute interval (x-axis) and the average number of steps taken, averaged across all weekday days or weekend days (y-axis).
 
 ```r
+## Calculate mean. 
 impute.week.ts <- with(impute, aggregate(steps, by = list(interval, weekend), FUN = mean))
+## Assign variable names. 
 names(impute.week.ts) <- c("interval", "weekend", "meansteps")
+## Load ggplot package. 
 library(ggplot2)
+## Plot weekend days versys weekday days. 
 plot <- ggplot(data = impute.week.ts, aes(x = interval, y = meansteps)) + geom_line() 
 plot + facet_wrap(~weekend, nrow = 2) + labs(title = "Mean steps taken on weekend days and weekday days", x = "Interval", y = "Mean steps")
 ```
